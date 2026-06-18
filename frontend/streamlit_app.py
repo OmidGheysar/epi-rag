@@ -139,11 +139,13 @@ st.markdown(
 )
 
 # --- Question input ---
-prefill = st.session_state.get("prefill_question", "")
+# Handle prefill from sidebar buttons
+if "prefill_question" in st.session_state and st.session_state["prefill_question"]:
+    st.session_state["question_input"] = st.session_state["prefill_question"]
+    st.session_state["prefill_question"] = ""
 
 question = st.text_area(
     "Ask a methodological question about your study:",
-    value=prefill,
     height=100,
     placeholder="e.g. I am running a cohort study on smoking and lung cancer. "
                 "Is my research question causal or descriptive? "
@@ -151,15 +153,9 @@ question = st.text_area(
     key="question_input"
 )
 
-# Clear prefill after use
-if prefill:
-    st.session_state["prefill_question"] = ""
-
 col1, col2 = st.columns([1, 5])
 with col1:
     ask_button = st.button("Ask", type="primary", use_container_width=True)
-with col2:
-    show_chunks = st.checkbox("Show retrieved passages", value=False)
 
 # --- Run pipeline ---
 if ask_button and question.strip():
@@ -185,30 +181,7 @@ if ask_button and question.strip():
                         unsafe_allow_html=True
                     )
 
-                # --- Retrieved chunks (optional) ---
-                if show_chunks:
-                    st.markdown("### Retrieved Passages")
-                    st.markdown(
-                        "These are the passages retrieved from the knowledge base "
-                        "that the answer is grounded in."
-                    )
-                    for i, chunk in enumerate(result["retrieved_chunks"]):
-                        score = chunk["relevance_score"]
-                        if score >= 0.7:
-                            score_class = "relevance-high"
-                        elif score >= 0.5:
-                            score_class = "relevance-mid"
-                        else:
-                            score_class = "relevance-low"
 
-                        with st.expander(
-                            f"[{i+1}] {chunk['citation']} "
-                            f"— relevance: {score}"
-                        ):
-                            st.markdown(
-                                f"<div class='chunk-box'>{chunk['text']}</div>",
-                                unsafe_allow_html=True
-                            )
 
             except Exception as e:
                 st.error(f"Something went wrong: {str(e)}")

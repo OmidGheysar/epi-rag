@@ -50,7 +50,7 @@ STRICT RULES:
 4. Do not run statistical analyses or access the researcher's data.
 5. Identify specific gaps or problems in the researcher's reasoning when relevant.
 6. Keep answers clear and accessible — avoid unnecessary jargon.
-7. Always show sources used at the end of your answer."""
+7. In the Sources Used section, list each source only once even if used multiple times."""
 
 
 # --- Pipeline state ---
@@ -135,26 +135,37 @@ def synthesize(state: PipelineState) -> PipelineState:
             "sources": []
         }
 
+    # Build unique citation map
+    unique_citations = {}
+    source_number = 1
+    for chunk in chunks:
+        citation = chunk["citation"]
+        if citation not in unique_citations:
+            unique_citations[citation] = source_number
+            source_number += 1
+
+    # Build context with deduplicated source numbers
     context_parts = []
-    for i, chunk in enumerate(chunks):
+    for chunk in chunks:
+        source_num = unique_citations[chunk["citation"]]
         context_parts.append(
-            f"[Source {i+1}] {chunk['citation']}\n"
-            f"Relevance: {chunk['relevance_score']}\n"
+            f"[Source {source_num}] {chunk['citation']}\n"
             f"---\n{chunk['text']}\n"
         )
     context = "\n\n".join(context_parts)
 
-    user_message = f"""Question from researcher:
-{question}
+    sources_legend = "\n".join(
+        f"[Source {num}] {citation}"
+        for citation, num in unique_citations.items()
+    )
 
-Retrieved passages from the epidemiological methodology literature:
-
-{context}
-
-Based strictly on these passages, provide a methodologically grounded answer.
-Identify any gaps in the researcher's approach if relevant.
-Cite sources by their [Source N] label and full citation.
-End your answer with a 'Sources Used' section."""
+    user_message = (
+        f"Question from researcher:\n{question}\n\n"
+        f"Retrieved passages:\n\n{context}\n\n"
+        f"Source legend (list each ONCE only in Sources Used):\n{sources_legend}\n\n"
+        f"Provide a grounded answer. Cite inline with [Source N]. "
+        f"End with Sources Used listing each source ONCE."
+    )
 
     llm = get_llm()
     response = llm.invoke([
@@ -162,7 +173,14 @@ End your answer with a 'Sources Used' section."""
         HumanMessage(content=user_message)
     ])
 
-    sources = list({chunk["citation"] for chunk in chunks})
+    # Deduplicated sources preserving order
+    seen = set()
+    sources = []
+    for chunk in chunks:
+        citation = chunk["citation"]
+        if citation not in seen:
+            seen.add(citation)
+            sources.append(citation)
 
     return {
         **state,
