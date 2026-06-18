@@ -9,7 +9,7 @@ venv/
 env/
 
 # Vector store — rebuild from papers
-data/chroma_db/
+
 
 # Python
 __pycache__/
