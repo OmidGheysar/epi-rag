@@ -43,3 +43,4 @@ models/
 data/papers/
 data/chroma_db/
 .env
+data/
