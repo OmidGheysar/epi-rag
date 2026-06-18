@@ -1,6 +1,6 @@
 """
-EpiRAG — Knowledge Base Ingestion Script
-Extracts text from PDFs, chunks, embeds, and loads into ChromaDB.
+EpiRAG — Pinecone Ingestion Script
+Extracts text from PDFs, chunks, embeds, and uploads to Pinecone.
 
 Usage:
     python ingestion/ingest.py
@@ -10,27 +10,27 @@ Run once to build the knowledge base. Re-run if you add new papers.
 
 import os
 import sys
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
 from pypdf import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-import chromadb
+from pinecone import Pinecone
 
 # --- Load environment ---
 load_dotenv()
 
 # --- Config ---
 PAPERS_DIR = Path("data/papers")
-CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "data/chroma_db")
-COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "epi_methodology")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "epi-methodology")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 800))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
 
 # --- Paper metadata ---
-# Maps filename stem to metadata for citation and filtering
 PAPER_METADATA = {
     "A Framework for Descriptive Epidemiology": {
         "authors": "Fox et al.",
@@ -62,7 +62,7 @@ PAPER_METADATA = {
         "topic": "statistical adjustment confounding",
         "citation": "Kaufman (2017) Statistics, Adjusted Statistics, and Maladjusted Statistics"
     },
-    "Negative Controls A Tool for Detecting Confou": {
+    "Negative Controls A Tool for Detecting Confounding and Bias in Observational Studies": {
         "authors": "Lipsitch, Tchetgen & Cohen",
         "year": "2010",
         "topic": "negative controls bias detection",
@@ -80,13 +80,13 @@ PAPER_METADATA = {
         "topic": "outcome-wide longitudinal designs",
         "citation": "VanderWeele, Mathur & Chen (2020) Outcome-Wide Longitudinal Designs"
     },
-    "The distinction between causal, predictive, and": {
+    "The distinction between causal, predictive, and descriptive": {
         "authors": "Dyer",
         "year": "2025",
         "topic": "causal predictive descriptive mistakes",
         "citation": "Dyer (2025) The distinction between causal, predictive, and descriptive research"
     },
-    "Using Big Data to Emulate a Target Trial When a": {
+    "Using Big Data to Emulate a Target Trial When a Randomized Trial Is Not Available": {
         "authors": "Hernán & Robins",
         "year": "2016",
         "topic": "target trial emulation",
@@ -100,17 +100,10 @@ PAPER_METADATA = {
     },
 }
 
-# --- Hernan book: only ingest these chapters (Part I) ---
-HERNAN_BOOK_CHAPTERS = {
-    "Causal inference what if Hernan": {
-        "pages": list(range(0, 160)),  # Part I: Ch 1-10, ~pages 1-160
-        "note": "Part I only — foundations, DAGs, confounding, selection bias"
-    }
-}
+HERNAN_BOOK_PAGES = list(range(0, 160))
 
 
 def extract_text_from_pdf(pdf_path: Path, page_range: list = None) -> str:
-    """Extract text from a PDF, optionally restricting to a page range."""
     reader = PdfReader(str(pdf_path))
     pages = page_range if page_range else range(len(reader.pages))
     text = ""
@@ -123,15 +116,11 @@ def extract_text_from_pdf(pdf_path: Path, page_range: list = None) -> str:
 
 
 def get_metadata_for_file(filename_stem: str) -> dict:
-    """Match filename stem to metadata, with fuzzy prefix matching."""
-    # Exact match first
     if filename_stem in PAPER_METADATA:
         return PAPER_METADATA[filename_stem]
-    # Prefix match for truncated filenames
     for key, meta in PAPER_METADATA.items():
         if filename_stem.startswith(key[:30]) or key.startswith(filename_stem[:30]):
             return meta
-    # Fallback
     return {
         "authors": "Unknown",
         "year": "Unknown",
@@ -140,15 +129,22 @@ def get_metadata_for_file(filename_stem: str) -> dict:
     }
 
 
+def sanitize_id(text: str) -> str:
+    safe = re.sub(r'[^a-zA-Z0-9_-]', '_', text)
+    return safe[:512]
+
+
 def ingest():
     print("=" * 55)
-    print("  EpiRAG — Knowledge Base Ingestion")
+    print("  EpiRAG — Pinecone Ingestion")
     print("=" * 55)
 
-    # --- Check papers directory ---
+    if not PINECONE_API_KEY:
+        print("\nERROR: PINECONE_API_KEY not found in .env")
+        sys.exit(1)
+
     if not PAPERS_DIR.exists():
         print(f"\nERROR: Papers directory not found: {PAPERS_DIR}")
-        print("Make sure you are running from the project root.")
         sys.exit(1)
 
     pdf_files = list(PAPERS_DIR.glob("*.pdf"))
@@ -156,7 +152,18 @@ def ingest():
         print(f"\nERROR: No PDF files found in {PAPERS_DIR}")
         sys.exit(1)
 
-    print(f"\nFound {len(pdf_files)} PDF files in {PAPERS_DIR}")
+    print(f"\nFound {len(pdf_files)} PDF files")
+
+    # --- Initialize Pinecone ---
+    print(f"\nConnecting to Pinecone...")
+    pc = Pinecone(api_key=PINECONE_API_KEY)
+    index = pc.Index(PINECONE_INDEX_NAME)
+    print(f"Connected to index: {PINECONE_INDEX_NAME}")
+
+    # --- Initialize embeddings ---
+    print(f"\nLoading embedding model: {EMBEDDING_MODEL}")
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    print("Embedding model loaded.")
 
     # --- Initialize text splitter ---
     splitter = RecursiveCharacterTextSplitter(
@@ -165,46 +172,21 @@ def ingest():
         separators=["\n\n", "\n", ". ", " ", ""]
     )
 
-    # --- Initialize embeddings ---
-    print(f"\nLoading embedding model: {EMBEDDING_MODEL}")
-    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
-    print("Embedding model loaded.")
-
-    # --- Initialize ChromaDB ---
-    print(f"\nConnecting to ChromaDB at: {CHROMA_DB_PATH}")
-    client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-
-    # Delete existing collection to rebuild fresh
-    try:
-        client.delete_collection(COLLECTION_NAME)
-        print(f"Deleted existing collection: {COLLECTION_NAME}")
-    except Exception:
-        pass
-
-    collection = client.create_collection(
-        name=COLLECTION_NAME,
-        metadata={"hnsw:space": "cosine"}
-    )
-    print(f"Created collection: {COLLECTION_NAME}")
-
-    # --- Process each PDF ---
     total_chunks = 0
 
     for pdf_path in sorted(pdf_files):
         stem = pdf_path.stem
         print(f"\nProcessing: {pdf_path.name}")
 
-        # Get page range for book chapters
         page_range = None
-        if stem in HERNAN_BOOK_CHAPTERS:
-            page_range = HERNAN_BOOK_CHAPTERS[stem]["pages"]
-            print(f"  → Book detected: ingesting Part I only ({len(page_range)} pages)")
+        if "Causal inference what if Hernan" in stem:
+            page_range = HERNAN_BOOK_PAGES
+            print(f"  Book: ingesting Part I only ({len(page_range)} pages)")
 
-        # Extract text
         try:
             text = extract_text_from_pdf(pdf_path, page_range)
         except Exception as e:
-            print(f"  ERROR extracting text: {e}")
+            print(f"  ERROR: {e}")
             continue
 
         if not text.strip():
@@ -213,78 +195,62 @@ def ingest():
 
         print(f"  Extracted {len(text):,} characters")
 
-        # Chunk
         chunks = splitter.split_text(text)
         print(f"  Created {len(chunks)} chunks")
 
-        # Get metadata
         meta = get_metadata_for_file(stem)
 
-        # Embed and add to ChromaDB
-        chunk_ids = []
-        chunk_texts = []
-        chunk_metadatas = []
-
-        for i, chunk in enumerate(chunks):
-            chunk_id = f"{stem}_{i:04d}"
-            chunk_ids.append(chunk_id)
-            chunk_texts.append(chunk)
-            chunk_metadatas.append({
-                "source": pdf_path.name,
-                "authors": meta["authors"],
-                "year": meta["year"],
-                "topic": meta["topic"],
-                "citation": meta["citation"],
-                "chunk_index": i,
-                "total_chunks": len(chunks)
-            })
-
-        # Batch embed and add
         batch_size = 50
         for start in range(0, len(chunks), batch_size):
             end = min(start + batch_size, len(chunks))
-            batch_texts = chunk_texts[start:end]
-            batch_ids = chunk_ids[start:end]
-            batch_metas = chunk_metadatas[start:end]
+            batch_chunks = chunks[start:end]
+            batch_embeddings = embeddings.embed_documents(batch_chunks)
 
-            batch_embeddings = embeddings.embed_documents(batch_texts)
+            vectors = []
+            for i, (chunk, embedding) in enumerate(zip(batch_chunks, batch_embeddings)):
+                chunk_index = start + i
+                vector_id = sanitize_id(f"{stem}_{chunk_index:04d}")
+                vectors.append({
+                    "id": vector_id,
+                    "values": embedding,
+                    "metadata": {
+                        "text": chunk,
+                        "source": pdf_path.name,
+                        "authors": meta["authors"],
+                        "year": meta["year"],
+                        "topic": meta["topic"],
+                        "citation": meta["citation"],
+                        "chunk_index": chunk_index,
+                        "total_chunks": len(chunks)
+                    }
+                })
 
-            collection.add(
-                ids=batch_ids,
-                embeddings=batch_embeddings,
-                documents=batch_texts,
-                metadatas=batch_metas
-            )
+            index.upsert(vectors=vectors)
 
         total_chunks += len(chunks)
-        print(f"  ✓ Added {len(chunks)} chunks to ChromaDB")
+        print(f"  ✓ Uploaded {len(chunks)} chunks to Pinecone")
 
-    # --- Summary ---
     print("\n" + "=" * 55)
     print(f"  Ingestion complete.")
     print(f"  Total chunks: {total_chunks:,}")
-    print(f"  Collection: {COLLECTION_NAME}")
-    print(f"  ChromaDB path: {CHROMA_DB_PATH}")
+    print(f"  Pinecone index: {PINECONE_INDEX_NAME}")
     print("=" * 55)
 
-    # --- Quick retrieval test ---
-    print("\nRunning quick retrieval test...")
+    # --- Quick test ---
+    print("\nRunning retrieval test...")
     test_query = "What is the difference between causal and predictive research?"
     test_embedding = embeddings.embed_query(test_query)
-    results = collection.query(
-        query_embeddings=[test_embedding],
-        n_results=3
-    )
-    print(f"Query: '{test_query}'")
-    print("Top 3 results:")
-    for i, (doc, meta) in enumerate(zip(
-        results["documents"][0],
-        results["metadatas"][0]
-    )):
-        print(f"\n  [{i+1}] {meta['citation']}")
-        print(f"       {doc[:150].strip()}...")
+    results = index.query(vector=test_embedding, top_k=3, include_metadata=True)
 
-    print("\nKnowledge base is ready.")
+    print(f"Query: '{test_query}'")
+    for i, match in enumerate(results["matches"]):
+        citation = match["metadata"].get("citation", "Unknown")
+        preview = match["metadata"].get("text", "")[:150]
+        score = round(match["score"], 3)
+        print(f"\n  [{i+1}] {citation} (score: {score})")
+        print(f"       {preview}...")
+
+    print("\nKnowledge base is ready in Pinecone.")
 
 
 if __name__ == "__main__":

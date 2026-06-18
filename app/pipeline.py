@@ -1,7 +1,7 @@
 """
-EpiRAG — LangGraph Pipeline
+EpiRAG — LangGraph Pipeline (Pinecone version)
 Two-node pipeline:
-  Node 1: retrieve — fetch relevant chunks from ChromaDB
+  Node 1: retrieve — fetch relevant chunks from Pinecone
   Node 2: synthesize — generate grounded answer using LLM
 
 Usage:
@@ -10,20 +10,23 @@ Usage:
 """
 
 import os
+import sys
 from typing import TypedDict, List
+from pathlib import Path
 from dotenv import load_dotenv
 
-import chromadb
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
 from langgraph.graph import StateGraph, END
+from pinecone import Pinecone
 
+sys.path.append(str(Path(__file__).parent.parent))
 load_dotenv()
 
 # --- Config ---
-CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "data/chroma_db")
-COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "epi_methodology")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "epi-methodology")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 TOP_K = int(os.getenv("TOP_K", 5))
@@ -41,16 +44,13 @@ You answer questions about:
 - Variable selection and adjustment strategies
 
 STRICT RULES:
-1. Base your answer ONLY on the retrieved passages provided. Do not add claims from outside these passages.
-2. Always cite the source of each key point using the citation provided in the context.
-3. If the retrieved passages do not contain enough information to answer the question, say so clearly.
+1. Base your answer ONLY on the retrieved passages provided.
+2. Always cite the source of each key point using the citation provided.
+3. If retrieved passages do not contain enough information, say so clearly.
 4. Do not run statistical analyses or access the researcher's data.
 5. Identify specific gaps or problems in the researcher's reasoning when relevant.
 6. Keep answers clear and accessible — avoid unnecessary jargon.
-7. Always show the source passages you used at the end of your answer.
-
-Your goal is to help the researcher understand what their study design can and cannot support, 
-grounded in the epidemiological methodology literature."""
+7. Always show sources used at the end of your answer."""
 
 
 # --- Pipeline state ---
@@ -61,9 +61,9 @@ class PipelineState(TypedDict):
     sources: List[str]
 
 
-# --- Initialize clients (lazy loaded) ---
+# --- Lazy loaded clients ---
 _embeddings = None
-_collection = None
+_index = None
 _llm = None
 
 
@@ -74,12 +74,12 @@ def get_embeddings():
     return _embeddings
 
 
-def get_collection():
-    global _collection
-    if _collection is None:
-        client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-        _collection = client.get_collection(COLLECTION_NAME)
-    return _collection
+def get_index():
+    global _index
+    if _index is None:
+        pc = Pinecone(api_key=PINECONE_API_KEY)
+        _index = pc.Index(PINECONE_INDEX_NAME)
+    return _index
 
 
 def get_llm():
@@ -95,33 +95,29 @@ def get_llm():
 
 # --- Node 1: Retrieve ---
 def retrieve(state: PipelineState) -> PipelineState:
-    """Retrieve relevant chunks from ChromaDB."""
     question = state["question"]
 
     embeddings = get_embeddings()
-    collection = get_collection()
+    index = get_index()
 
     query_embedding = embeddings.embed_query(question)
 
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=TOP_K,
-        include=["documents", "metadatas", "distances"]
+    results = index.query(
+        vector=query_embedding,
+        top_k=TOP_K,
+        include_metadata=True
     )
 
     chunks = []
-    for doc, meta, dist in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0]
-    ):
+    for match in results["matches"]:
+        meta = match.get("metadata", {})
         chunks.append({
-            "text": doc,
+            "text": meta.get("text", ""),
             "citation": meta.get("citation", "Unknown"),
             "authors": meta.get("authors", "Unknown"),
             "year": meta.get("year", "Unknown"),
             "topic": meta.get("topic", ""),
-            "relevance_score": round(1 - dist, 3)
+            "relevance_score": round(match["score"], 3)
         })
 
     return {**state, "retrieved_chunks": chunks}
@@ -129,18 +125,16 @@ def retrieve(state: PipelineState) -> PipelineState:
 
 # --- Node 2: Synthesize ---
 def synthesize(state: PipelineState) -> PipelineState:
-    """Synthesize a grounded answer from retrieved chunks."""
     question = state["question"]
     chunks = state["retrieved_chunks"]
 
     if not chunks:
         return {
             **state,
-            "answer": "I could not find relevant passages in the methodology literature to answer this question.",
+            "answer": "I could not find relevant passages to answer this question.",
             "sources": []
         }
 
-    # Build context from retrieved chunks
     context_parts = []
     for i, chunk in enumerate(chunks):
         context_parts.append(
@@ -150,7 +144,6 @@ def synthesize(state: PipelineState) -> PipelineState:
         )
     context = "\n\n".join(context_parts)
 
-    # Build user message
     user_message = f"""Question from researcher:
 {question}
 
@@ -158,10 +151,10 @@ Retrieved passages from the epidemiological methodology literature:
 
 {context}
 
-Based strictly on these passages, provide a methodologically grounded answer. 
+Based strictly on these passages, provide a methodologically grounded answer.
 Identify any gaps in the researcher's approach if relevant.
 Cite sources by their [Source N] label and full citation.
-End your answer with a 'Sources Used' section listing the citations."""
+End your answer with a 'Sources Used' section."""
 
     llm = get_llm()
     response = llm.invoke([
@@ -169,7 +162,6 @@ End your answer with a 'Sources Used' section listing the citations."""
         HumanMessage(content=user_message)
     ])
 
-    # Extract unique sources
     sources = list({chunk["citation"] for chunk in chunks})
 
     return {
@@ -179,35 +171,21 @@ End your answer with a 'Sources Used' section listing the citations."""
     }
 
 
-# --- Build LangGraph pipeline ---
+# --- Build pipeline ---
 def build_pipeline():
     graph = StateGraph(PipelineState)
-
     graph.add_node("retrieve", retrieve)
     graph.add_node("synthesize", synthesize)
-
     graph.set_entry_point("retrieve")
     graph.add_edge("retrieve", "synthesize")
     graph.add_edge("synthesize", END)
-
     return graph.compile()
 
 
-# --- Public interface ---
 _pipeline = None
 
 
 def run_pipeline(question: str) -> dict:
-    """
-    Run the full RAG pipeline on a question.
-
-    Returns:
-        dict with keys:
-            - question: the original question
-            - answer: synthesized answer grounded in literature
-            - sources: list of citation strings used
-            - retrieved_chunks: raw retrieved passages
-    """
     global _pipeline
     if _pipeline is None:
         _pipeline = build_pipeline()
@@ -230,13 +208,13 @@ def run_pipeline(question: str) -> dict:
 # --- Quick test ---
 if __name__ == "__main__":
     test_questions = [
-        "Is my study causal or descriptive if I am looking at association between smoking and lung cancer in a cohort?",
+        "Is my study causal or descriptive if I am looking at association between smoking and lung cancer?",
         "What does a p-value actually tell me about my results?",
         "Should I adjust for all variables that are correlated with my outcome?"
     ]
 
     print("=" * 55)
-    print("  EpiRAG — Pipeline Test")
+    print("  EpiRAG — Pipeline Test (Pinecone)")
     print("=" * 55)
 
     for question in test_questions:

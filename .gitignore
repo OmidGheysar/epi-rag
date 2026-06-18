@@ -38,3 +38,8 @@ models/
 
 # Streamlit secrets
 .streamlit/secrets.toml
+
+
+data/papers/
+data/chroma_db/
+.env
