@@ -1,0 +1,247 @@
+"""
+EpiRAG — Streamlit Frontend
+Epidemiological Methodology Assistant
+
+Usage:
+    streamlit run frontend/streamlit_app.py
+"""
+
+import sys
+from pathlib import Path
+import streamlit as st
+
+# Add project root to path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from app.pipeline import run_pipeline
+
+# --- Page config ---
+st.set_page_config(
+    page_title="EpiRAG — Epidemiological Methodology Assistant",
+    page_icon="🔬",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# --- Custom CSS ---
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin-bottom: 0.2rem;
+    }
+    .sub-header {
+        font-size: 1rem;
+        color: #555;
+        margin-bottom: 2rem;
+    }
+    .answer-box {
+        background-color: #f8f9fa;
+        border-left: 4px solid #2c7be5;
+        padding: 1.2rem;
+        border-radius: 4px;
+        margin: 1rem 0;
+    }
+    .source-tag {
+        background-color: #e8f0fe;
+        color: #1a73e8;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        margin: 0.2rem;
+        display: inline-block;
+    }
+    .chunk-box {
+        background-color: #fff;
+        border: 1px solid #e0e0e0;
+        padding: 0.8rem;
+        border-radius: 4px;
+        margin: 0.5rem 0;
+        font-size: 0.85rem;
+    }
+    .relevance-high { color: #2e7d32; font-weight: 600; }
+    .relevance-mid  { color: #f57c00; font-weight: 600; }
+    .relevance-low  { color: #c62828; font-weight: 600; }
+    .disclaimer {
+        background-color: #fff8e1;
+        border-left: 4px solid #ffc107;
+        padding: 0.8rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #555;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Sidebar ---
+with st.sidebar:
+    st.markdown("### 🔬 EpiRAG")
+    st.markdown("**Epidemiological Methodology Assistant**")
+    st.markdown("---")
+
+    st.markdown("#### About")
+    st.markdown("""
+    EpiRAG helps junior researchers critically evaluate 
+    their observational studies by retrieving and 
+    synthesizing guidance from canonical epidemiological 
+    methodology literature.
+    """)
+
+    st.markdown("#### Knowledge Base")
+    papers = [
+        "Hernán & Robins — *What If* (Part I)",
+        "Greenland, Pearl & Robins (1999)",
+        "Hernán, Hsu & Healy (2019)",
+        "Dyer (2025) — two papers",
+        "Kaufman (2017)",
+        "Lipsitch et al. (2010)",
+        "VanderWeele (2017, 2020)",
+        "Fox et al. (2022)",
+        "Hernán & Robins (2016)",
+    ]
+    for p in papers:
+        st.markdown(f"- {p}")
+
+    st.markdown("---")
+    st.markdown("#### Example Questions")
+    example_questions = [
+        "Is my study causal or descriptive?",
+        "What does my p-value actually tell me?",
+        "Should I adjust for all correlated variables?",
+        "Can I claim causation from this association?",
+        "What is confounding and how do I control for it?",
+        "What is a DAG and do I need one?",
+        "What is immortal time bias?",
+        "What is the difference between a mediator and a confounder?",
+    ]
+    for q in example_questions:
+        if st.button(q, key=q, use_container_width=True):
+            st.session_state["prefill_question"] = q
+
+    st.markdown("---")
+    st.markdown("""
+    <div class='disclaimer'>
+    ⚠️ For educational and research purposes only. 
+    Does not provide clinical advice.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# --- Main content ---
+st.markdown("<div class='main-header'>🔬 EpiRAG</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='sub-header'>Epidemiological Methodology Assistant — "
+    "grounded in Hernán, VanderWeele, Greenland, Kaufman and others</div>",
+    unsafe_allow_html=True
+)
+
+# --- Question input ---
+prefill = st.session_state.get("prefill_question", "")
+
+question = st.text_area(
+    "Ask a methodological question about your study:",
+    value=prefill,
+    height=100,
+    placeholder="e.g. I am running a cohort study on smoking and lung cancer. "
+                "Is my research question causal or descriptive? "
+                "What do I need to do to make causal claims?",
+    key="question_input"
+)
+
+# Clear prefill after use
+if prefill:
+    st.session_state["prefill_question"] = ""
+
+col1, col2 = st.columns([1, 5])
+with col1:
+    ask_button = st.button("Ask", type="primary", use_container_width=True)
+with col2:
+    show_chunks = st.checkbox("Show retrieved passages", value=False)
+
+# --- Run pipeline ---
+if ask_button and question.strip():
+    if len(question.strip()) < 10:
+        st.warning("Please provide a more detailed question.")
+    else:
+        with st.spinner("Retrieving relevant methodology literature and synthesizing answer..."):
+            try:
+                result = run_pipeline(question.strip())
+
+                # --- Answer ---
+                st.markdown("### Answer")
+                st.markdown(
+                    f"<div class='answer-box'>{result['answer']}</div>",
+                    unsafe_allow_html=True
+                )
+
+                # --- Sources ---
+                st.markdown("### Sources Used")
+                for source in result["sources"]:
+                    st.markdown(
+                        f"<span class='source-tag'>📄 {source}</span>",
+                        unsafe_allow_html=True
+                    )
+
+                # --- Retrieved chunks (optional) ---
+                if show_chunks:
+                    st.markdown("### Retrieved Passages")
+                    st.markdown(
+                        "These are the passages retrieved from the knowledge base "
+                        "that the answer is grounded in."
+                    )
+                    for i, chunk in enumerate(result["retrieved_chunks"]):
+                        score = chunk["relevance_score"]
+                        if score >= 0.7:
+                            score_class = "relevance-high"
+                        elif score >= 0.5:
+                            score_class = "relevance-mid"
+                        else:
+                            score_class = "relevance-low"
+
+                        with st.expander(
+                            f"[{i+1}] {chunk['citation']} "
+                            f"— relevance: {score}"
+                        ):
+                            st.markdown(
+                                f"<div class='chunk-box'>{chunk['text']}</div>",
+                                unsafe_allow_html=True
+                            )
+
+            except Exception as e:
+                st.error(f"Something went wrong: {str(e)}")
+
+elif ask_button and not question.strip():
+    st.warning("Please enter a question.")
+
+# --- Empty state ---
+if not question.strip():
+    st.markdown("---")
+    st.markdown("#### How to use EpiRAG")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("""
+        **📋 Describe your study**
+        
+        Tell the system what kind of data you have, 
+        what exposure and outcome you are studying, 
+        and what claims you want to make.
+        """)
+    with col2:
+        st.markdown("""
+        **❓ Ask your question**
+        
+        Ask about study design, interpretation, 
+        confounding, p-values, adjustment strategy, 
+        or whether your claims are supported.
+        """)
+    with col3:
+        st.markdown("""
+        **📚 Get grounded answers**
+        
+        The system retrieves relevant passages from 
+        canonical epi methodology literature and 
+        synthesizes a cited answer.
+        """)

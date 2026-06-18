@@ -1,0 +1,29 @@
+# Core RAG stack
+langchain==0.3.7
+langchain-community==0.3.7
+langchain-huggingface==0.1.2
+langchain-openai==0.2.9
+langgraph==0.2.45
+
+# Vector store
+chromadb==0.5.18
+
+# PDF processing
+pypdf==5.1.0
+
+# Embeddings
+sentence-transformers==3.3.1
+
+# API backend
+fastapi==0.115.5
+uvicorn==0.32.1
+
+# Frontend
+streamlit==1.40.1
+
+# Evaluation
+ragas==0.2.6
+
+# Utilities
+python-dotenv==1.0.1
+pydantic==2.10.1

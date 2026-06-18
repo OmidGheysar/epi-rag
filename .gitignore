@@ -1,0 +1,40 @@
+# Environment
+.env
+.env.local
+.env.production
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Vector store — rebuild from papers
+data/chroma_db/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Model cache
+.cache/
+models/
+
+# Streamlit secrets
+.streamlit/secrets.toml
