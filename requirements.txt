@@ -1,14 +1,27 @@
-streamlit==1.46.0
-langchain==0.2.16
-langchain-community==0.2.16
-langchain-openai==0.1.23
-langgraph==0.2.14
-pinecone==5.0.1
-pypdf==4.3.1
-python-dotenv==1.0.1
-pydantic==2.8.2
-openai==1.40.6
-sentence-transformers==2.7.0
-transformers==4.41.0
-torch==2.3.1
-torchvision==0.18.1
+# Core RAG stack
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-openai
+langgraph
+
+# Vector store
+pinecone
+
+# PDF processing
+pypdf
+
+# Embeddings
+sentence-transformers
+
+# API backend
+fastapi
+uvicorn
+
+# Frontend
+streamlit
+
+# Utilities
+python-dotenv
+pydantic
