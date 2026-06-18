@@ -1,26 +1,14 @@
-# Core RAG stack
 langchain
 langchain-community
-langchain-huggingface
 langchain-openai
 langgraph
-
-# Vector store
 pinecone
-
-# PDF processing
 pypdf
-
-# Embeddings
-sentence-transformers
-
-# API backend
-fastapi
-uvicorn
-
-# Frontend
-streamlit
-
-# Utilities
 python-dotenv
 pydantic
+streamlit
+fastapi
+uvicorn
+openai
+sentence-transformers==2.7.0
+transformers==4.41.0
