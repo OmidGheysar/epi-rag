@@ -72,6 +72,14 @@ st.markdown("""
         font-size: 0.85rem;
         color: #555;
     }
+    .footer-note {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e0e0e0;
+        font-size: 0.8rem;
+        color: #888;
+        text-align: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,18 +100,19 @@ with st.sidebar:
 
     st.markdown("#### Knowledge Base")
     papers = [
-        "Hernán & Robins — *What If* (Part I)",
-        "Greenland, Pearl & Robins (1999)",
-        "Hernán, Hsu & Healy (2019)",
-        "Dyer (2025) — two papers",
-        "Kaufman (2017)",
-        "Lipsitch et al. (2010)",
-        "VanderWeele (2017, 2020)",
-        "Fox et al. (2022)",
-        "Hernán & Robins (2016)",
+        "Igelström et al. (2022) — causal inference overview",
+        "Daniel, De Stavola & Vansteelandt (2016)",
+        "Tennant et al. (2021) — DAGs & confounders",
+        "Anderson et al. (2024) — target trial emulation",
+        "Broadbent & Grote (2022) — ML & causal inference",
+        "Boscardin et al. (2024) — p-values",
+        "Dyer (2025) — variable selection",
+        "Inoue et al. (2025) — confounder selection",
+        "Penning de Vries & Groenwold (2023) — negative controls",
     ]
     for p in papers:
         st.markdown(f"- {p}")
+    st.caption("All sources CC BY 4.0 licensed.")
 
     st.markdown("---")
     st.markdown("#### Example Questions")
@@ -114,7 +123,7 @@ with st.sidebar:
         "Can I claim causation from this association?",
         "What is confounding and how do I control for it?",
         "What is a DAG and do I need one?",
-        "What is immortal time bias?",
+        "What is a negative control and how does it help detect bias?",
         "What is the difference between a mediator and a confounder?",
     ]
     for q in example_questions:
@@ -125,7 +134,8 @@ with st.sidebar:
     st.markdown("""
     <div class='disclaimer'>
     ⚠️ For educational and research purposes only. 
-    Does not provide clinical advice.
+    Does not provide clinical advice. Synthesized from a 
+    curated, openly licensed (CC BY 4.0) literature corpus.
     </div>
     """, unsafe_allow_html=True)
 
@@ -134,7 +144,8 @@ with st.sidebar:
 st.markdown("<div class='main-header'>🔬 EpiRAG</div>", unsafe_allow_html=True)
 st.markdown(
     "<div class='sub-header'>Epidemiological Methodology Assistant — "
-    "grounded in Hernán, VanderWeele, Greenland, Kaufman and others</div>",
+    "grounded in Tennant, Igelström, Dyer, and other peer-reviewed, "
+    "openly licensed methodology literature</div>",
     unsafe_allow_html=True
 )
 
@@ -218,3 +229,12 @@ if not question.strip():
         canonical epi methodology literature and 
         synthesizes a cited answer.
         """)
+
+# --- Footer ---
+st.markdown(
+    "<div class='footer-note'>EpiRAG is a non-commercial educational/research tool. "
+    "It synthesizes answers from a curated, openly licensed (CC BY 4.0) epidemiological "
+    "methodology corpus. It does not run statistical analyses or access user data, and "
+    "should not be treated as a substitute for expert methodological consultation.</div>",
+    unsafe_allow_html=True
+)

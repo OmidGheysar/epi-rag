@@ -31,87 +31,73 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 800))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
 
 # --- Paper metadata ---
+# Keys are the exact filename stems (PDF filename minus ".pdf") as downloaded.
+# Final approved corpus — 9 papers, all CC BY 4.0 (verified 2026-06-18).
 PAPER_METADATA = {
-    "A Framework for Descriptive Epidemiology": {
-        "authors": "Fox et al.",
+    "jech-2022-219267": {
+        "authors": "Igelström, Craig, Lewsey, Lynch, Pearce, Katikireddi",
         "year": "2022",
-        "topic": "descriptive epidemiology",
-        "citation": "Fox et al. (2022) A Framework for Descriptive Epidemiology"
+        "topic": "causal inference overview",
+        "citation": "Igelström et al. (2022) Causal inference and effect estimation using observational data. J Epidemiol Community Health."
     },
-    "A Second Chance to Get Causal Inference Right A": {
-        "authors": "Hernán, Hsu & Healy",
-        "year": "2019",
-        "topic": "causal inference classification",
-        "citation": "Hernán, Hsu & Healy (2019) A Second Chance to Get Causal Inference Right"
-    },
-    "Causal Diagrams for Epidemiologic Research": {
-        "authors": "Greenland, Pearl & Robins",
-        "year": "1999",
-        "topic": "DAGs confounding",
-        "citation": "Greenland, Pearl & Robins (1999) Causal Diagrams for Epidemiologic Research"
-    },
-    "Causal inference what if Hernan": {
-        "authors": "Hernán & Robins",
-        "year": "2020",
-        "topic": "causal inference foundations",
-        "citation": "Hernán & Robins (2020) Causal Inference: What If"
-    },
-    "kaufman2017": {
-        "authors": "Kaufman",
-        "year": "2017",
-        "topic": "statistical adjustment confounding",
-        "citation": "Kaufman (2017) Statistics, Adjusted Statistics, and Maladjusted Statistics"
-    },
-    "Negative Controls A Tool for Detecting Confounding and Bias in Observational Studies": {
-        "authors": "Lipsitch, Tchetgen & Cohen",
-        "year": "2010",
-        "topic": "negative controls bias detection",
-        "citation": "Lipsitch, Tchetgen & Cohen (2010) Negative Controls"
-    },
-    "outcome_wide_epidemiology.15": {
-        "authors": "VanderWeele",
-        "year": "2017",
-        "topic": "outcome-wide epidemiology",
-        "citation": "VanderWeele (2017) Outcome-Wide Epidemiology"
-    },
-    "OutcomeWide_StatisticalScience": {
-        "authors": "VanderWeele, Mathur & Chen",
-        "year": "2020",
-        "topic": "outcome-wide longitudinal designs",
-        "citation": "VanderWeele, Mathur & Chen (2020) Outcome-Wide Longitudinal Designs"
-    },
-    "The distinction between causal, predictive, and descriptive": {
-        "authors": "Dyer",
-        "year": "2025",
-        "topic": "causal predictive descriptive mistakes",
-        "citation": "Dyer (2025) The distinction between causal, predictive, and descriptive research"
-    },
-    "Using Big Data to Emulate a Target Trial When a Randomized Trial Is Not Available": {
-        "authors": "Hernán & Robins",
+    "dyw227": {
+        "authors": "Daniel, De Stavola, Vansteelandt",
         "year": "2016",
-        "topic": "target trial emulation",
-        "citation": "Hernán & Robins (2016) Using Big Data to Emulate a Target Trial"
+        "topic": "causal inference foundations",
+        "citation": "Daniel et al. (2016) Commentary: The formal approach to quantitative causal inference in epidemiology. Int J Epidemiol."
     },
-    "Variable selection for causal inference": {
+    "dyaa213": {
+        "authors": "Tennant, Murray, Arnold, Berrie, Fox, Gadd, Harrison, Keeble, Ranker, Textor, Tomova, Gilthorpe, Ellison",
+        "year": "2021",
+        "topic": "DAGs confounders",
+        "citation": "Tennant et al. (2021) Use of directed acyclic graphs (DAGs) to identify confounders in applied health research. Int J Epidemiol, 50(2):620-632."
+    },
+    "kwae222": {
+        "authors": "Anderson et al.",
+        "year": "2024",
+        "topic": "target trial emulation",
+        "citation": "Anderson et al. (2024) Invited commentary: target trial emulation—a call for more widespread use. Am J Epidemiol."
+    },
+    "13347_2022_Article_509": {
+        "authors": "Broadbent, Grote",
+        "year": "2022",
+        "topic": "ML causal inference",
+        "citation": "Broadbent & Grote (2022) Can Robots Do Epidemiology? Philosophy & Technology, 35(1):14."
+    },
+    "pme-13-1-1324": {
+        "authors": "Boscardin, Sewell, Tolsgaard, Pusic",
+        "year": "2024",
+        "topic": "p-values",
+        "citation": "Boscardin et al. (2024) How to Use and Report on p-values. Perspectives on Medical Education, 13(1):250-254."
+    },
+    "oeaf070": {
         "authors": "Dyer",
         "year": "2025",
-        "topic": "variable selection confounding",
-        "citation": "Dyer (2025) Variable Selection for Causal Inference"
+        "topic": "variable selection",
+        "citation": "Dyer (2025) Variable selection for causal inference, prediction, and descriptive research. Eur Heart J Open, 5(3):oeaf070."
+    },
+    "je-35-003": {
+        "authors": "Inoue, Sakamaki, Komukai, Ito, Goto, Shinozaki",
+        "year": "2025",
+        "topic": "confounder selection sensitivity analysis",
+        "citation": "Inoue et al. (2025) Methodological Tutorial Series for Epidemiological Studies: Confounder Selection and Sensitivity Analyses. J Epidemiol, 35(1):3-10."
+    },
+    "10.1177_09622802231181230": {
+        "authors": "Penning de Vries, Groenwold",
+        "year": "2023",
+        "topic": "negative controls",
+        "citation": "Penning de Vries & Groenwold (2023) Negative controls: Concepts and caveats. Statistical Methods in Medical Research, 32(8):1576-1587."
     },
 }
 
-HERNAN_BOOK_PAGES = list(range(0, 160))
 
-
-def extract_text_from_pdf(pdf_path: Path, page_range: list = None) -> str:
+def extract_text_from_pdf(pdf_path: Path) -> str:
     reader = PdfReader(str(pdf_path))
-    pages = page_range if page_range else range(len(reader.pages))
     text = ""
-    for i in pages:
-        if i < len(reader.pages):
-            page_text = reader.pages[i].extract_text()
-            if page_text:
-                text += page_text + "\n"
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text + "\n"
     return text
 
 
@@ -154,6 +140,11 @@ def ingest():
 
     print(f"\nFound {len(pdf_files)} PDF files")
 
+    unmatched = [p.stem for p in pdf_files if p.stem not in PAPER_METADATA]
+    if unmatched:
+        print(f"\nWARNING: {len(unmatched)} file(s) have no exact metadata match "
+              f"(will fall back to fuzzy/Unknown): {unmatched}")
+
     # --- Initialize Pinecone ---
     print(f"\nConnecting to Pinecone...")
     pc = Pinecone(api_key=PINECONE_API_KEY)
@@ -178,13 +169,8 @@ def ingest():
         stem = pdf_path.stem
         print(f"\nProcessing: {pdf_path.name}")
 
-        page_range = None
-        if "Causal inference what if Hernan" in stem:
-            page_range = HERNAN_BOOK_PAGES
-            print(f"  Book: ingesting Part I only ({len(page_range)} pages)")
-
         try:
-            text = extract_text_from_pdf(pdf_path, page_range)
+            text = extract_text_from_pdf(pdf_path)
         except Exception as e:
             print(f"  ERROR: {e}")
             continue
