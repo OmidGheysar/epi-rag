@@ -1,0 +1,28 @@
+question,overall_success,Faithfulness,Contextual Precision,Contextual Recall,Answer Relevancy,Hallucination
+"What specific criteria were used to select the 234 articles for inclusion in the observational study, and how do these criteria align with established methodological standards in epidemiological research?",False,1.0,0.0,0.0,0.6,1.0
+What is the best way to define the exposure variable in my observational study to ensure accurate measurement and analysis?,True,1.0,0.9166666666666666,1.0,1.0,0.3333333333333333
+What are the best practices for implementing target trial emulation methods to reduce bias in my observational study?,True,1.0,1.0,1.0,1.0,0.0
+What are the advantages of using negative control methods over traditional techniques for addressing unmeasured confounding in my observational study?,False,1.0,0.2,0.0,1.0,0.0
+What specific statistical methods should I use to ensure that my observational study's analysis accurately reflects the causal relationships I am investigating?,True,1.0,1.0,0.7142857142857143,1.0,0.3333333333333333
+What specific methodologies can I use to evaluate the accuracy of DAG data extraction processes in my observational study?,False,1.0,0.3666666666666667,1.0,1.0,1.0
+What are the implications of low specificity and sensitivity in negative controls for bias detection in my observational study?,True,0.9333333333333333,1.0,1.0,1.0,0.0
+What are the key assumptions I need to consider for causal inference in my observational study on the effects of diet on health outcomes?,False,1.0,0.6388888888888888,0.3333333333333333,1.0,1.0
+What specific eligibility criteria and treatment definitions should I consider when designing my observational study to ensure effective target trial emulation?,True,1.0,1.0,1.0,0.9090909090909091,0.0
+What are the key differences between the target trial emulation framework and traditional causal inference methods that I should consider when evaluating my observational study?,True,1.0,0.8875,1.0,1.0,0.0
+What are the key principles to consider when selecting confounders in my observational study?,True,1.0,1.0,1.0,0.8571428571428571,0.0
+What are the best practices for using causal diagrams to identify and select confounders in my observational study?,True,0.75,1.0,1.0,0.8888888888888888,0.0
+What specific criteria should I use to evaluate the compatibility of my directed acyclic graph (DAG) with the dataset I collected for my observational study?,False,1.0,1.0,1.0,1.0,1.0
+What are the best practices for using negative controls to detect unmeasured confounding in my observational study?,True,1.0,1.0,1.0,1.0,0.0
+What is the appropriate way to interpret p-values in the context of effect sizes and confidence intervals in my observational study?,True,1.0,1.0,1.0,1.0,0.0
+What steps should I take to address unexpected inaccuracies found during the validation of my prediction model in my observational study?,True,0.8888888888888888,1.0,1.0,1.0,0.0
+"What statistical methods can I use to evaluate the independent contribution of a new predictor variable in my observational study, considering I already have established predictors?",True,0.8333333333333334,1.0,1.0,1.0,0.0
+What are the key considerations for assessing effect modification in my observational study's analysis?,False,1.0,0.75,0.4,0.7272727272727273,0.0
+What are the common misconceptions about p-value interpretation that I should be aware of when evaluating the results of my observational study?,True,0.9166666666666666,1.0,1.0,1.0,0.0
+What are the best practices for reporting effect sizes and confidence intervals in my observational study to ensure clarity and accuracy in my findings?,True,0.8,1.0,1.0,1.0,0.0
+What are the best practices for selecting the scale when assessing interaction effects in my observational epidemiological study?,False,1.0,0.0,0.0,1.0,1.0
+What are the key limitations of using machine learning for causal inference in my observational study compared to traditional epidemiological methods?,True,0.8571428571428571,1.0,1.0,1.0,0.0
+What are the best practices for using machine learning as a tool in the analysis of observational study data in epidemiology?,True,1.0,0.8875,1.0,1.0,0.0
+"What specific strategies can I use to minimize measurement bias in my observational study, and how do these differ from strategies used to address confounding?",False,1.0,1.0,0.3333333333333333,0.7692307692307693,1.0
+"What are the best practices for selecting confounders in my observational study, and how do they compare to statistical methods?",True,0.75,1.0,1.0,1.0,0.0
+What criteria should I use to evaluate the appropriateness of machine learning methods for causal inference in my observational study?,True,0.9,1.0,1.0,0.9285714285714286,0.0
+What are the key differences between interaction and effect measure modification in the context of my observational study's analysis?,False,0.75,0.9166666666666666,0.6666666666666666,0.9,0.3333333333333333

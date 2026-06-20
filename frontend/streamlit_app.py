@@ -186,7 +186,7 @@ if ask_button and question.strip():
 
                 # --- Sources ---
                 st.markdown("### Sources Used")
-                for source in result["sources"]:
+                for source in result["sources_short"]:
                     st.markdown(
                         f"<span class='source-tag'>📄 {source}</span>",
                         unsafe_allow_html=True

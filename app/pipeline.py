@@ -10,6 +10,7 @@ Usage:
 """
 
 import os
+import re
 import sys
 from typing import TypedDict, List
 from pathlib import Path
@@ -30,6 +31,31 @@ PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "epi-methodology")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 TOP_K = int(os.getenv("TOP_K", 5))
+
+# --- Short display citations for UI tags ---
+# Maps the full citation string (stored in Pinecone metadata) to a short
+# "Author(s) (Year)" form for display. Full citation stays available in
+# result["sources"] for anything that needs it (eval, logs, etc).
+SHORT_CITATIONS = {
+    "Igelström et al. (2022) Causal inference and effect estimation using observational data. J Epidemiol Community Health.": "Igelström et al. (2022)",
+    "Daniel et al. (2016) Commentary: The formal approach to quantitative causal inference in epidemiology. Int J Epidemiol.": "Daniel et al. (2016)",
+    "Tennant et al. (2021) Use of directed acyclic graphs (DAGs) to identify confounders in applied health research. Int J Epidemiol, 50(2):620-632.": "Tennant et al. (2021)",
+    "Anderson et al. (2024) Invited commentary: target trial emulation—a call for more widespread use. Am J Epidemiol.": "Anderson et al. (2024)",
+    "Broadbent & Grote (2022) Can Robots Do Epidemiology? Philosophy & Technology, 35(1):14.": "Broadbent & Grote (2022)",
+    "Boscardin et al. (2024) How to Use and Report on p-values. Perspectives on Medical Education, 13(1):250-254.": "Boscardin et al. (2024)",
+    "Dyer (2025) Variable selection for causal inference, prediction, and descriptive research. Eur Heart J Open, 5(3):oeaf070.": "Dyer (2025)",
+    "Inoue et al. (2025) Methodological Tutorial Series for Epidemiological Studies: Confounder Selection and Sensitivity Analyses. J Epidemiol, 35(1):3-10.": "Inoue et al. (2025)",
+    "Penning de Vries & Groenwold (2023) Negative controls: Concepts and caveats. Statistical Methods in Medical Research, 32(8):1576-1587.": "Penning de Vries & Groenwold (2023)",
+}
+
+
+def short_citation(citation: str) -> str:
+    """Look up the short display form; fall back to extracting 'Name (Year)' via regex."""
+    if citation in SHORT_CITATIONS:
+        return SHORT_CITATIONS[citation]
+    match = re.match(r"^(.*?\(\d{4}\))", citation)
+    return match.group(1) if match else citation
+
 
 # --- System prompt ---
 SYSTEM_PROMPT = """You are an epidemiological methodology advisor. Your role is to help 
@@ -59,6 +85,7 @@ class PipelineState(TypedDict):
     retrieved_chunks: List[dict]
     answer: str
     sources: List[str]
+    sources_short: List[str]
 
 
 # --- Lazy loaded clients ---
@@ -132,7 +159,8 @@ def synthesize(state: PipelineState) -> PipelineState:
         return {
             **state,
             "answer": "I could not find relevant passages to answer this question.",
-            "sources": []
+            "sources": [],
+            "sources_short": []
         }
 
     # Build unique citation map
@@ -182,10 +210,13 @@ def synthesize(state: PipelineState) -> PipelineState:
             seen.add(citation)
             sources.append(citation)
 
+    sources_short = [short_citation(c) for c in sources]
+
     return {
         **state,
         "answer": response.content,
-        "sources": sources
+        "sources": sources,
+        "sources_short": sources_short
     }
 
 
@@ -212,13 +243,15 @@ def run_pipeline(question: str) -> dict:
         "question": question,
         "retrieved_chunks": [],
         "answer": "",
-        "sources": []
+        "sources": [],
+        "sources_short": []
     })
 
     return {
         "question": result["question"],
         "answer": result["answer"],
         "sources": result["sources"],
+        "sources_short": result["sources_short"],
         "retrieved_chunks": result["retrieved_chunks"]
     }
 
@@ -241,6 +274,6 @@ if __name__ == "__main__":
         result = run_pipeline(question)
         print(result["answer"])
         print("\nSources:")
-        for s in result["sources"]:
+        for s in result["sources_short"]:
             print(f"  - {s}")
         print("=" * 55)
