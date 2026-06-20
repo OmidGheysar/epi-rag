@@ -101,7 +101,7 @@ with st.sidebar:
     st.markdown("#### Knowledge Base")
     papers = [
         "Igelström et al. (2022) — causal inference overview",
-        "Daniel, De Stavola & Vansteelandt (2016)",
+        "Daniel, De Stavola & Vansteelandt (2016) — causal inference foundations",
         "Tennant et al. (2021) — DAGs & confounders",
         "Anderson et al. (2024) — target trial emulation",
         "Broadbent & Grote (2022) — ML & causal inference",
@@ -143,11 +143,22 @@ with st.sidebar:
 # --- Main content ---
 st.markdown("<div class='main-header'>🔬 EpiRAG</div>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='sub-header'>Epidemiological Methodology Assistant — "
+    "<div class='sub-header'>Epidemiological Methodology Assistant, "
     "grounded in Tennant, Igelström, Dyer, and other peer-reviewed, "
     "openly licensed methodology literature</div>",
     unsafe_allow_html=True
 )
+
+# --- Evaluation Results ---
+st.markdown("#### Evaluation (DeepEval, 27-question pilot)")
+eval_cols = st.columns(5)
+eval_cols[0].metric("Faithfulness", "0.95", help="How closely answers stick to retrieved sources. Higher is better.")
+eval_cols[1].metric("Answer Relevancy", "0.98", help="How directly answers address the question asked. Higher is better.")
+eval_cols[2].metric("Contextual Precision", "0.82", help="Relevance of retrieved passages, by rank. Higher is better.")
+eval_cols[3].metric("Contextual Recall", "0.77", help="Whether retrieval captured everything needed for a full answer. Higher is better.")
+eval_cols[4].metric("Hallucination Rate", "0.27", help="Share of output not supported by source context. Lower is better — this metric is inverted from the others.")
+st.caption("Evaluated with DeepEval across 27 synthetic questions. Full methodology in the repo's WRITEUP.md.")
+st.markdown("---")
 
 # --- Question input ---
 # Handle prefill from sidebar buttons
@@ -164,9 +175,14 @@ question = st.text_area(
     key="question_input"
 )
 
+agree = st.checkbox(
+    "I understand this tool is for educational and research purposes only, "
+    "and is not a substitute for expert methodological consultation."
+)
+
 col1, col2 = st.columns([1, 5])
 with col1:
-    ask_button = st.button("Ask", type="primary", use_container_width=True)
+    ask_button = st.button("Ask", type="primary", use_container_width=True, disabled=not agree)
 
 # --- Run pipeline ---
 if ask_button and question.strip():
