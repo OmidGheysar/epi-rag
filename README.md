@@ -61,3 +61,6 @@ statement on each article page).
 EpiRAG is a non-commercial educational/research tool. It does not run
 statistical analyses or access user data, and should not be treated as a
 substitute for expert methodological consultation.
+
+## Technical Writeup
+For the full engineering retrospective (architecture decisions, evaluation results, what I'd do differently), see [WRITEUP.md](WRITEUP.md).
