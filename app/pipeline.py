@@ -33,9 +33,6 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 TOP_K = int(os.getenv("TOP_K", 5))
 
 # --- Short display citations for UI tags ---
-# Maps the full citation string (stored in Pinecone metadata) to a short
-# "Author(s) (Year)" form for display. Full citation stays available in
-# result["sources"] for anything that needs it (eval, logs, etc).
 SHORT_CITATIONS = {
     "Igelström et al. (2022) Causal inference and effect estimation using observational data. J Epidemiol Community Health.": "Igelström et al. (2022)",
     "Daniel et al. (2016) Commentary: The formal approach to quantitative causal inference in epidemiology. Int J Epidemiol.": "Daniel et al. (2016)",
@@ -50,7 +47,6 @@ SHORT_CITATIONS = {
 
 
 def short_citation(citation: str) -> str:
-    """Look up the short display form; fall back to extracting 'Name (Year)' via regex."""
     if citation in SHORT_CITATIONS:
         return SHORT_CITATIONS[citation]
     match = re.match(r"^(.*?\(\d{4}\))", citation)
@@ -79,7 +75,6 @@ STRICT RULES:
 7. In the Sources Used section, list each source only once even if used multiple times."""
 
 
-# --- Pipeline state ---
 class PipelineState(TypedDict):
     question: str
     retrieved_chunks: List[dict]
@@ -88,7 +83,6 @@ class PipelineState(TypedDict):
     sources_short: List[str]
 
 
-# --- Lazy loaded clients ---
 _embeddings = None
 _index = None
 _llm = None
@@ -120,7 +114,6 @@ def get_llm():
     return _llm
 
 
-# --- Node 1: Retrieve ---
 def retrieve(state: PipelineState) -> PipelineState:
     question = state["question"]
 
@@ -150,7 +143,6 @@ def retrieve(state: PipelineState) -> PipelineState:
     return {**state, "retrieved_chunks": chunks}
 
 
-# --- Node 2: Synthesize ---
 def synthesize(state: PipelineState) -> PipelineState:
     question = state["question"]
     chunks = state["retrieved_chunks"]
@@ -163,7 +155,6 @@ def synthesize(state: PipelineState) -> PipelineState:
             "sources_short": []
         }
 
-    # Build unique citation map
     unique_citations = {}
     source_number = 1
     for chunk in chunks:
@@ -172,7 +163,6 @@ def synthesize(state: PipelineState) -> PipelineState:
             unique_citations[citation] = source_number
             source_number += 1
 
-    # Build context with deduplicated source numbers
     context_parts = []
     for chunk in chunks:
         source_num = unique_citations[chunk["citation"]]
@@ -201,7 +191,6 @@ def synthesize(state: PipelineState) -> PipelineState:
         HumanMessage(content=user_message)
     ])
 
-    # Deduplicated sources preserving order
     seen = set()
     sources = []
     for chunk in chunks:
@@ -220,7 +209,6 @@ def synthesize(state: PipelineState) -> PipelineState:
     }
 
 
-# --- Build pipeline ---
 def build_pipeline():
     graph = StateGraph(PipelineState)
     graph.add_node("retrieve", retrieve)
@@ -256,7 +244,6 @@ def run_pipeline(question: str) -> dict:
     }
 
 
-# --- Quick test ---
 if __name__ == "__main__":
     test_questions = [
         "Is my study causal or descriptive if I am looking at association between smoking and lung cancer?",
