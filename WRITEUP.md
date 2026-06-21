@@ -21,6 +21,8 @@ The graph terminates after synthesis and returns the answer plus a deduplicated,
 
 **Pinecone instead of a local vector store.** The original build used ChromaDB, which stores raw chunk text in a SQLite file. Fine locally, but a problem the moment that file gets committed to a public GitHub repo. Pinecone keeps the vectors and chunk text in a private, API-key-gated cloud index, and the repo itself stays code-only. The application never needs local access to source PDFs after ingestion.
 
+**Rate limiting and cost controls, added after the system went public.** The initial build had no limits on input size or request volume beyond what GPT-4o-mini's context window allowed. Fine for local testing, not fine for a publicly reachable endpoint with a real API bill behind it. A few changes closed the gap: identical questions are cached for an hour so repeats cost nothing, a per-session cap and a separate global daily cap bound worst-case spend independent of any single user's behavior, and a hard input-length limit stops one oversized prompt from inflating cost. I also added a line to the system prompt instructing the model to decline if asked to ignore its instructions or provide clinical guidance. None of this touches retrieval or synthesis quality. It's a separate engineering concern from the eval harness, and an easy one to skip if "deployed" just means "has a URL."
+
 ## Evaluation
 
 A deployed RAG system that hasn't been evaluated is a demo, not an engineering artifact. I built a DeepEval harness: an LLM synthesizer generated 27 candidate questions from the corpus (3 per paper), and I scored the live pipeline's answers against five metrics: Faithfulness, Contextual Precision, Contextual Recall, Answer Relevancy, and Hallucination.
