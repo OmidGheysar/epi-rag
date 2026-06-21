@@ -25,8 +25,8 @@ st.set_page_config(
 )
 
 # --- Cost / abuse controls ---
-MAX_QUERIES_PER_SESSION = 3   # per-browser-session cap (resets if session resets)
-GLOBAL_DAILY_LIMIT = 7       # cap across ALL users/sessions for the day
+MAX_QUERIES_PER_SESSION = 15   # per-browser-session cap (resets if session resets)
+GLOBAL_DAILY_LIMIT = 150       # cap across ALL users/sessions for the day
 MAX_QUESTION_CHARS = 1500      # prevents oversized prompts inflating token cost
 
 
