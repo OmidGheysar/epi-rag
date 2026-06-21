@@ -7,6 +7,7 @@ Usage:
 """
 
 import sys
+from datetime import date
 from pathlib import Path
 import streamlit as st
 
@@ -22,6 +23,37 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# --- Cost / abuse controls ---
+MAX_QUERIES_PER_SESSION = 3   # per-browser-session cap (resets if session resets)
+GLOBAL_DAILY_LIMIT = 7       # cap across ALL users/sessions for the day
+MAX_QUESTION_CHARS = 1500      # prevents oversized prompts inflating token cost
+
+
+@st.cache_data(ttl=3600, max_entries=200, show_spinner=False)
+def cached_run_pipeline(question: str):
+    """Cache identical questions for 1 hour so repeat queries cost zero API calls."""
+    return run_pipeline(question)
+
+
+@st.cache_resource
+def get_global_counter():
+    """Singleton dict shared across ALL sessions on this running app instance.
+    Resets if the app restarts/redeploys (Streamlit Community Cloud sleep cycles) —
+    best-effort daily cap, not a substitute for the OpenAI billing hard limit."""
+    return {"date": None, "count": 0}
+
+
+global_counter = get_global_counter()
+_today = date.today().isoformat()
+if global_counter["date"] != _today:
+    global_counter["date"] = _today
+    global_counter["count"] = 0
+
+if "query_count" not in st.session_state:
+    st.session_state.query_count = 0
+if "processing" not in st.session_state:
+    st.session_state.processing = False
 
 # --- Custom CSS ---
 st.markdown("""
@@ -182,16 +214,35 @@ agree = st.checkbox(
 
 col1, col2 = st.columns([1, 5])
 with col1:
-    ask_button = st.button("Ask", type="primary", use_container_width=True, disabled=not agree)
+    ask_button = st.button(
+        "Ask", type="primary", use_container_width=True,
+        disabled=not agree or st.session_state.processing
+    )
+
+if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
+    st.info(f"Session limit reached ({MAX_QUERIES_PER_SESSION} questions). Refresh the page to ask more.")
+elif global_counter["count"] >= GLOBAL_DAILY_LIMIT:
+    st.info("Daily question limit reached across all users. Please try again tomorrow.")
 
 # --- Run pipeline ---
 if ask_button and question.strip():
+    if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
+        st.warning(f"Session limit reached ({MAX_QUERIES_PER_SESSION} questions). Refresh the page to continue.")
+        st.stop()
+    if global_counter["count"] >= GLOBAL_DAILY_LIMIT:
+        st.warning("Daily question limit reached across all users. Please try again tomorrow.")
+        st.stop()
     if len(question.strip()) < 10:
         st.warning("Please provide a more detailed question.")
+    elif len(question.strip()) > MAX_QUESTION_CHARS:
+        st.warning(f"Question is too long ({len(question.strip())} characters). Please shorten it to under {MAX_QUESTION_CHARS} characters.")
     else:
+        st.session_state.processing = True
         with st.spinner("Retrieving relevant methodology literature and synthesizing answer..."):
             try:
-                result = run_pipeline(question.strip())
+                result = cached_run_pipeline(question.strip())
+                st.session_state.query_count += 1
+                global_counter["count"] += 1
 
                 # --- Answer ---
                 st.markdown("### Answer")
@@ -208,10 +259,10 @@ if ask_button and question.strip():
                         unsafe_allow_html=True
                     )
 
-
-
             except Exception as e:
                 st.error(f"Something went wrong: {str(e)}")
+            finally:
+                st.session_state.processing = False
 
 elif ask_button and not question.strip():
     st.warning("Please enter a question.")
